@@ -1,9 +1,10 @@
 import React from 'react'
+import ShortenForm from './components/ShortenForm'
 
 const App = () => {
   return (
     <div>
-      <h1>Hello World!</h1>
+      <ShortenForm />
     </div>
   )
 }
