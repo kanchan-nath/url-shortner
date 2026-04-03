@@ -8,7 +8,8 @@ connectDB()
     app.listen(process.env.PORT, ()=>{
         console.log(`Server is connected at PORT: ${process.env.PORT}`);
     })
-}).catch((error)=>{
+})
+.catch((error)=>{
     console.error(`Server is not connected: ${error}`);
     
 })
