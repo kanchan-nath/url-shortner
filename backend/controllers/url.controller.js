@@ -5,6 +5,13 @@ import { nanoid } from "nanoid"
 const createShortUrl = asyncHandler(async (req, res) => {
     const { originalUrl } = req.body
 
+    const existedUrl = await UrlSchema.findOne({originalUrl}).select("shortUrl")
+
+    if(existedUrl){
+        return res
+        .json(existedUrl)
+    }
+
     const shortUrlCode = nanoid()
 
     const url = await UrlSchema.create({

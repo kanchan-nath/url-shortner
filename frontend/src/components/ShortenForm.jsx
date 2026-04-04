@@ -49,7 +49,7 @@ const ShortenForm = () => {
                 <button type='submit'>Submit</button>
             </form>
 
-            {urlResult && <h1>Shorted URL is "http://localhost:5173/{urlResult}"</h1>}
+            {urlResult && <h1>Shorted URL is "http://localhost:5173/api/{urlResult}"</h1>}
         </>
     )
 }
