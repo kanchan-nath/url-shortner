@@ -1,0 +1,216 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Reset ────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    background: #010812;
+    overflow: hidden;
+}
+
+/* ── Page ─────────────────────────────────────────────────────── */
+.page {
+    position: relative;
+    z-index: 10;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+/* ── Card ─────────────────────────────────────────────────────── */
+.card {
+    width: 100%;
+    max-width: 560px;
+    background: rgba(1, 12, 30, 0.65);
+    backdrop-filter: blur(36px);
+    -webkit-backdrop-filter: blur(36px);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    border-radius: 22px;
+    padding: 3rem 3.25rem;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 50px 100px rgba(0, 0, 0, 0.6);
+    position: relative;
+}
+
+/* Glowing top border */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 22px 22px 0 0;
+    background: linear-gradient(90deg, #00d4ff 0%, #a78bfa 50%, #34d399 100%);
+    opacity: 0.75;
+}
+
+/* ── Headline ─────────────────────────────────────────────────── */
+.headline {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: #e8f4ff;
+    margin-bottom: 0.75rem;
+}
+
+/* ── Subtitle ─────────────────────────────────────────────────── */
+.subtitle {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 400;
+    color: rgba(148, 185, 220, 0.55);
+    line-height: 1.65;
+    margin-bottom: 2.25rem;
+}
+
+/* ── Form ─────────────────────────────────────────────────────── */
+.form {
+    display: flex;
+    gap: 10px;
+}
+
+/* ── Input ────────────────────────────────────────────────────── */
+.url-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.9rem 1.1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.16);
+    border-radius: 13px;
+    color: #e8f4ff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+
+.url-input::placeholder {
+    color: rgba(148, 185, 220, 0.28);
+}
+
+.url-input:focus {
+    border-color: rgba(0, 212, 255, 0.42);
+    background: rgba(0, 212, 255, 0.04);
+    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.07);
+}
+
+/* ── Button ───────────────────────────────────────────────────── */
+.submit-btn {
+    padding: 0.9rem 1.5rem;
+    background: linear-gradient(130deg, #0099ff 0%, #7b5cf6 100%);
+    border: none;
+    border-radius: 13px;
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.18s, opacity 0.18s;
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0);
+    transition: background 0.2s;
+}
+
+.submit-btn:hover::after {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.submit-btn:hover {
+    transform: translateY(-1px);
+}
+
+.submit-btn:active {
+    transform: scale(0.97);
+}
+
+/* ── Result ───────────────────────────────────────────────────── */
+.result {
+    margin-top: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.95rem 1.1rem;
+    background: rgba(0, 212, 255, 0.055);
+    border: 1px solid rgba(0, 212, 255, 0.18);
+    border-radius: 13px;
+    animation: slideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.result-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.5);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.result-url {
+    flex: 1;
+    min-width: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: #00d4ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 500px) {
+    .card {
+        padding: 2.25rem 1.75rem;
+    }
+
+    .form {
+        flex-direction: column;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 1rem;
+    }
+
+    .headline {
+        font-size: 2rem;
+    }
+}
