@@ -38,7 +38,7 @@ const ShortenForm = () => {
 
     return (
         <>
-            {/* <ThreeBackground /> */}
+            <ThreeBackground />
             <div className="page">
                 <div className="card">
                     <h1 className="headline">Shorten your link.</h1>

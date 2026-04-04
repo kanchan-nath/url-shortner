@@ -13,7 +13,7 @@ html,
 body,
 #root {
     height: 100%;
-    background: #010812;
+    /* background: red; */
     overflow: hidden;
 }
 
@@ -32,10 +32,12 @@ body,
 .card {
     width: 100%;
     max-width: 560px;
-    background: rgba(1, 12, 30, 0.65);
-    backdrop-filter: blur(36px);
-    -webkit-backdrop-filter: blur(36px);
-    border: 1px solid rgba(0, 212, 255, 0.12);
+    background: transparent;
+    /* very light */
+    /* backdrop-filter: blur(12px); */
+    /* reduce from 36px */
+    /* -webkit-backdrop-filter: blur(12px); */
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 22px;
     padding: 3rem 3.25rem;
     box-shadow:

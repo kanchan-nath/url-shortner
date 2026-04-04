@@ -1,212 +1,239 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-export default function ThreeBackground() {
+const CONFIG = {
+    NODE_COUNT: 100,
+    CONNECTION_DISTANCE: 160,
+    NODE_SPEED: 0.35,
+    MOUSE_INFLUENCE_RADIUS: 200,
+    MOUSE_FORCE: 0.045,
+    NODE_SIZE: 3.2,
+    LINE_OPACITY: 0.55,
+    NODE_COLOR: new THREE.Color(0x00e5ff),
+    LINE_COLOR: new THREE.Color(0x00cfff),
+    GLOW_COLOR: new THREE.Color(0xffffff),
+    BG_COLOR: new THREE.Color(0x020a14),
+    FOG_NEAR: 400,
+    FOG_FAR: 1000,
+    DEPTH_SPREAD: 180,
+};
+
+export default function ThreeJsBackground({ style = {}, className = "" }) {
     const mountRef = useRef(null);
 
     useEffect(() => {
         const mount = mountRef.current;
-        const W = mount.clientWidth;
-        const H = mount.clientHeight;
+        if (!mount) return;
 
-        // ── Renderer ──────────────────────────────────────────────
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        // ── Renderer ──────────────────────────────────────────────────────────
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true, // key change
+        });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(W, H);
-        renderer.setClearColor(0x02040a, 1);
+        renderer.setSize(mount.clientWidth, mount.clientHeight);
+        renderer.setClearColor(CONFIG.BG_COLOR, 1);
         mount.appendChild(renderer.domElement);
 
-        // ── Scene / Camera ────────────────────────────────────────
+        // ── Scene & Camera ────────────────────────────────────────────────────
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, W / H, 0.1, 200);
-        camera.position.set(0, 0, 0);
+        scene.fog = new THREE.Fog(0x000000, CONFIG.FOG_NEAR, CONFIG.FOG_FAR);
 
-        // ── Fog ───────────────────────────────────────────────────
-        scene.fog = new THREE.FogExp2(0x02040a, 0.018);
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            mount.clientWidth / mount.clientHeight,
+            1,
+            1200
+        );
+        camera.position.z = 320;
 
-        // ── Wormhole Tube ─────────────────────────────────────────
-        const tubePoints = [];
-        const SEGMENTS = 300;
-        for (let i = 0; i < SEGMENTS; i++) {
-            const t = i / SEGMENTS;
-            const angle = t * Math.PI * 8;
-            const radius = 0.5 + Math.sin(t * Math.PI * 4) * 0.3;
-            tubePoints.push(
-                new THREE.Vector3(
-                    Math.cos(angle) * radius,
-                    Math.sin(angle * 0.7) * radius * 0.5,
-                    -i * 0.8
-                )
-            );
+        // ── Nodes ─────────────────────────────────────────────────────────────
+        const W = mount.clientWidth;
+        const H = mount.clientHeight;
+        const spreadX = W * 0.60;
+        const spreadY = H * 0.60;
+
+        const nodes = Array.from({ length: CONFIG.NODE_COUNT }, () => ({
+            x: (Math.random() - 0.5) * spreadX,
+            y: (Math.random() - 0.5) * spreadY,
+            z: (Math.random() - 0.5) * CONFIG.DEPTH_SPREAD,
+            vx: (Math.random() - 0.5) * CONFIG.NODE_SPEED,
+            vy: (Math.random() - 0.5) * CONFIG.NODE_SPEED,
+            vz: (Math.random() - 0.5) * CONFIG.NODE_SPEED * 0.25,
+            size: CONFIG.NODE_SIZE * (0.5 + Math.random() * 1.0),
+        }));
+
+        const nodeGeo = new THREE.BufferGeometry();
+        const nodePositions = new Float32Array(CONFIG.NODE_COUNT * 3);
+        const nodeSizes = new Float32Array(CONFIG.NODE_COUNT);
+        const nodeBrightness = new Float32Array(CONFIG.NODE_COUNT);
+
+        for (let i = 0; i < CONFIG.NODE_COUNT; i++) {
+            nodePositions[i * 3] = nodes[i].x;
+            nodePositions[i * 3 + 1] = nodes[i].y;
+            nodePositions[i * 3 + 2] = nodes[i].z;
+            nodeSizes[i] = nodes[i].size;
+            nodeBrightness[i] = 0.6 + Math.random() * 0.4;
         }
-        const path = new THREE.CatmullRomCurve3(tubePoints, false, "catmullrom", 0.5);
+        nodeGeo.setAttribute("position", new THREE.BufferAttribute(nodePositions, 3));
+        nodeGeo.setAttribute("size", new THREE.BufferAttribute(nodeSizes, 1));
+        nodeGeo.setAttribute("brightness", new THREE.BufferAttribute(nodeBrightness, 1));
 
-        const tubeGeo = new THREE.TubeGeometry(path, 800, 2.2, 12, false);
-        const tubeMat = new THREE.MeshBasicMaterial({
-            color: 0x0a1628,
-            side: THREE.BackSide,
-            wireframe: false,
-        });
-        const tube = new THREE.Mesh(tubeGeo, tubeMat);
-        scene.add(tube);
-
-        // ── Wireframe Overlay ─────────────────────────────────────
-        const wireGeo = new THREE.TubeGeometry(path, 300, 2.21, 12, false);
-        const wireMat = new THREE.MeshBasicMaterial({
-            color: 0x0d3d6e,
-            wireframe: true,
+        const nodeMat = new THREE.ShaderMaterial({
+            uniforms: {
+                coreColor: { value: CONFIG.NODE_COLOR },
+                glowColor: { value: CONFIG.GLOW_COLOR },
+                time: { value: 0 },
+            },
+            vertexShader: `
+        attribute float size;
+        attribute float brightness;
+        uniform float time;
+        varying float vBright;
+        void main() {
+          vBright = brightness * (0.80 + 0.20 * sin(time * 1.4 + position.y * 0.04));
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (320.0 / -mv.z);
+          gl_Position  = projectionMatrix * mv;
+        }
+      `,
+            fragmentShader: `
+        uniform vec3 coreColor;
+        uniform vec3 glowColor;
+        varying float vBright;
+        void main() {
+          vec2 uv = gl_PointCoord - 0.5;
+          float d  = length(uv);
+          if (d > 0.5) discard;
+          float core = 1.0 - smoothstep(0.0,  0.12, d);
+          float halo = 1.0 - smoothstep(0.10, 0.32, d);
+          float glow = 1.0 - smoothstep(0.25, 0.50, d);
+          vec3 col   = mix(coreColor, glowColor, core);
+          float alpha = (core * 1.0 + halo * 0.55 + glow * 0.20) * vBright;
+          gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+        }
+      `,
             transparent: true,
-            opacity: 0.25,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
         });
-        const wireMesh = new THREE.Mesh(wireGeo, wireMat);
-        scene.add(wireMesh);
 
-        // ── Flowing Particle Stream ───────────────────────────────
-        const PARTICLE_COUNT = 3000;
-        const positions = new Float32Array(PARTICLE_COUNT * 3);
-        const colors = new Float32Array(PARTICLE_COUNT * 3);
-        const speeds = new Float32Array(PARTICLE_COUNT);
+        scene.add(new THREE.Points(nodeGeo, nodeMat));
 
-        const palette = [
-            new THREE.Color(0x00d4ff),
-            new THREE.Color(0x0099ff),
-            new THREE.Color(0x7b2fff),
-            new THREE.Color(0x00ffcc),
-            new THREE.Color(0xffffff),
-        ];
+        // ── Lines ─────────────────────────────────────────────────────────────
+        const MAX_LINES = CONFIG.NODE_COUNT * 8;
+        const lineGeo = new THREE.BufferGeometry();
+        const linePositions = new Float32Array(MAX_LINES * 2 * 3);
+        const lineColors = new Float32Array(MAX_LINES * 2 * 3);
+        lineGeo.setAttribute("position", new THREE.BufferAttribute(linePositions, 3).setUsage(THREE.DynamicDrawUsage));
+        lineGeo.setAttribute("color", new THREE.BufferAttribute(lineColors, 3).setUsage(THREE.DynamicDrawUsage));
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const t = Math.random();
-            const pt = path.getPoint(t);
-            const spread = 1.8;
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * spread;
-
-            positions[i * 3] = pt.x + Math.cos(angle) * r;
-            positions[i * 3 + 1] = pt.y + Math.sin(angle) * r;
-            positions[i * 3 + 2] = pt.z;
-
-            const col = palette[Math.floor(Math.random() * palette.length)];
-            colors[i * 3] = col.r;
-            colors[i * 3 + 1] = col.g;
-            colors[i * 3 + 2] = col.b;
-
-            speeds[i] = 0.001 + Math.random() * 0.003;
-        }
-
-        const particleGeo = new THREE.BufferGeometry();
-        particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        particleGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-        const particleMat = new THREE.PointsMaterial({
-            size: 0.045,
+        const lineMat = new THREE.LineBasicMaterial({
             vertexColors: true,
             transparent: true,
-            opacity: 0.85,
-            sizeAttenuation: true,
+            opacity: CONFIG.LINE_OPACITY,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
         });
+        scene.add(new THREE.LineSegments(lineGeo, lineMat));
 
-        const particles = new THREE.Points(particleGeo, particleMat);
-        scene.add(particles);
-
-        // Track per-particle path progress
-        const tValues = new Float32Array(PARTICLE_COUNT);
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            tValues[i] = Math.random();
-        }
-
-        // ── Ambient Glow Rings ────────────────────────────────────
-        const ringCount = 20;
-        const rings = [];
-        for (let i = 0; i < ringCount; i++) {
-            const t = i / ringCount;
-            const pt = path.getPoint(t);
-            const tangent = path.getTangent(t);
-
-            const ringGeo = new THREE.TorusGeometry(2.15, 0.012, 8, 64);
-            const ringColor = i % 2 === 0 ? 0x00d4ff : 0x7b2fff;
-            const ringMat = new THREE.MeshBasicMaterial({
-                color: ringColor,
-                transparent: true,
-                opacity: 0.18 + Math.random() * 0.12,
-            });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.position.copy(pt);
-
-            const axis = new THREE.Vector3(0, 0, 1);
-            ring.quaternion.setFromUnitVectors(axis, tangent.normalize());
-
-            scene.add(ring);
-            rings.push(ring);
-        }
-
-        // ── Camera Path Progress ──────────────────────────────────
-        let camT = 0;
-        const CAM_SPEED = 0.00018;
-
-        // ── Mouse Parallax ────────────────────────────────────────
-        const mouse = { x: 0, y: 0 };
+        // ── Mouse (listen on window so form card doesn't block it) ────────────
+        const mouseWorld = { x: 99999, y: 99999 };
         const onMouseMove = (e) => {
-            mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
-            mouse.y = -(e.clientY / window.innerHeight - 0.5) * 2;
+            const rect = mount.getBoundingClientRect();
+            mouseWorld.x = ((e.clientX - rect.left) / mount.clientWidth - 0.5) * spreadX;
+            mouseWorld.y = -((e.clientY - rect.top) / mount.clientHeight - 0.5) * spreadY;
         };
         window.addEventListener("mousemove", onMouseMove);
 
-        // ── Resize ────────────────────────────────────────────────
+        // ── Resize ────────────────────────────────────────────────────────────
         const onResize = () => {
-            const w = mount.clientWidth;
-            const h = mount.clientHeight;
-            camera.aspect = w / h;
+            camera.aspect = mount.clientWidth / mount.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
+            renderer.setSize(mount.clientWidth, mount.clientHeight);
         };
         window.addEventListener("resize", onResize);
 
-        // ── Animation Loop ────────────────────────────────────────
-        let frameId;
+        // ── Animation loop ────────────────────────────────────────────────────
+        let animId;
         const clock = new THREE.Clock();
+        const DIST2 = CONFIG.CONNECTION_DISTANCE * CONFIG.CONNECTION_DISTANCE;
+        const MR2 = CONFIG.MOUSE_INFLUENCE_RADIUS * CONFIG.MOUSE_INFLUENCE_RADIUS;
+        const lr = CONFIG.LINE_COLOR.r;
+        const lg = CONFIG.LINE_COLOR.g;
+        const lb = CONFIG.LINE_COLOR.b;
 
         const animate = () => {
-            frameId = requestAnimationFrame(animate);
-            const elapsed = clock.getElapsedTime();
+            animId = requestAnimationFrame(animate);
+            nodeMat.uniforms.time.value = clock.getElapsedTime();
 
-            // Advance camera along tunnel
-            camT = (camT + CAM_SPEED) % 0.98;
-            const camPos = path.getPoint(camT);
-            const lookAhead = path.getPoint(Math.min(camT + 0.02, 0.99));
+            const hW = mount.clientWidth * 0.54;
+            const hH = mount.clientHeight * 0.54;
 
-            camera.position.copy(camPos);
+            for (let i = 0; i < CONFIG.NODE_COUNT; i++) {
+                const n = nodes[i];
 
-            // Subtle mouse parallax offset
-            camera.position.x += mouse.x * 0.3;
-            camera.position.y += mouse.y * 0.3;
+                // Mouse repulsion
+                const dx = n.x - mouseWorld.x;
+                const dy = n.y - mouseWorld.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < MR2 && d2 > 0.01) {
+                    const d = Math.sqrt(d2);
+                    const force = ((CONFIG.MOUSE_INFLUENCE_RADIUS - d) / CONFIG.MOUSE_INFLUENCE_RADIUS) * CONFIG.MOUSE_FORCE;
+                    n.vx += (dx / d) * force;
+                    n.vy += (dy / d) * force;
+                }
 
-            camera.lookAt(lookAhead);
+                // Random micro-drift to keep things alive
+                n.vx += (Math.random() - 0.5) * 0.006;
+                n.vy += (Math.random() - 0.5) * 0.006;
 
-            // Update particle positions — stream along tunnel
-            const pos = particleGeo.attributes.position;
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                tValues[i] += speeds[i];
-                if (tValues[i] > 0.99) tValues[i] = 0;
+                // Damping
+                n.vx *= 0.978; n.vy *= 0.978; n.vz *= 0.975;
 
-                const pt = path.getPoint(tValues[i]);
-                const angle = elapsed * 0.3 + i * 0.1;
-                const r = (Math.random() < 0.01 ? Math.random() : 0) * 1.8;
+                // Speed cap
+                const spd = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+                const MAX = CONFIG.NODE_SPEED * 2.8;
+                if (spd > MAX) { n.vx = (n.vx / spd) * MAX; n.vy = (n.vy / spd) * MAX; }
 
-                pos.setXYZ(
-                    i,
-                    pt.x + Math.cos(angle) * (r || Math.abs(pos.getX(i) - pt.x)),
-                    pt.y + Math.sin(angle) * (r || Math.abs(pos.getY(i) - pt.y)),
-                    pt.z
-                );
+                n.x += n.vx; n.y += n.vy; n.z += n.vz;
+
+                // Elastic boundary
+                if (n.x > hW) { n.x = hW; n.vx *= -0.6; }
+                if (n.x < -hW) { n.x = -hW; n.vx *= -0.6; }
+                if (n.y > hH) { n.y = hH; n.vy *= -0.6; }
+                if (n.y < -hH) { n.y = -hH; n.vy *= -0.6; }
+                if (Math.abs(n.z) > CONFIG.DEPTH_SPREAD * 0.55) n.vz *= -0.6;
+
+                nodePositions[i * 3] = n.x;
+                nodePositions[i * 3 + 1] = n.y;
+                nodePositions[i * 3 + 2] = n.z;
             }
-            pos.needsUpdate = true;
+            nodeGeo.attributes.position.needsUpdate = true;
 
-            // Pulse rings
-            rings.forEach((ring, idx) => {
-                ring.material.opacity =
-                    0.1 + Math.abs(Math.sin(elapsed * 0.6 + idx * 0.5)) * 0.25;
-            });
+            // Build line segments
+            let li = 0;
+            for (let i = 0; i < CONFIG.NODE_COUNT && li < MAX_LINES; i++) {
+                for (let j = i + 1; j < CONFIG.NODE_COUNT && li < MAX_LINES; j++) {
+                    const dx = nodes[i].x - nodes[j].x;
+                    const dy = nodes[i].y - nodes[j].y;
+                    const dz = nodes[i].z - nodes[j].z;
+                    const d2 = dx * dx + dy * dy + dz * dz;
+                    if (d2 < DIST2) {
+                        const fade = (1 - d2 / DIST2) ** 2; // quadratic: closer = much brighter
+                        const b = li * 6;
+                        linePositions[b] = nodes[i].x; linePositions[b + 1] = nodes[i].y; linePositions[b + 2] = nodes[i].z;
+                        linePositions[b + 3] = nodes[j].x; linePositions[b + 4] = nodes[j].y; linePositions[b + 5] = nodes[j].z;
+                        lineColors[b] = lr * fade; lineColors[b + 1] = lg * fade; lineColors[b + 2] = lb * fade;
+                        lineColors[b + 3] = lr * fade; lineColors[b + 4] = lg * fade; lineColors[b + 5] = lb * fade;
+                        li++;
+                    }
+                }
+            }
+
+            lineGeo.setDrawRange(0, li * 2);
+            lineGeo.attributes.position.needsUpdate = true;
+            lineGeo.attributes.color.needsUpdate = true;
 
             renderer.render(scene, camera);
         };
@@ -214,20 +241,28 @@ export default function ThreeBackground() {
         animate();
 
         return () => {
-            cancelAnimationFrame(frameId);
+            cancelAnimationFrame(animId);
             window.removeEventListener("mousemove", onMouseMove);
             window.removeEventListener("resize", onResize);
             renderer.dispose();
-            if (mount.contains(renderer.domElement)) {
-                mount.removeChild(renderer.domElement);
-            }
+            nodeGeo.dispose(); nodeMat.dispose();
+            lineGeo.dispose(); lineMat.dispose();
+            if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
         };
     }, []);
 
     return (
         <div
             ref={mountRef}
-            style={{ position: "fixed", inset: 0, zIndex: -1, width: "100vw", height: "100vh" }}
+            className={className}
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 0,
+                pointerEvents: "none",
+                overflow: "hidden",
+                ...style,
+            }}
         />
     );
 }
